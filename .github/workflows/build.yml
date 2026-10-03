@@ -1,0 +1,95 @@
+name: build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # iOS：macOS 出未签名 IPA（§14.2）
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // "v0.0.0"')
+          base=${latest#v}
+          IFS='.' read -r major minor patch <<< "$base"
+          echo "version=v${major}.${minor}.$((patch+1))" >> "$GITHUB_OUTPUT"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: cd ios && xcodegen generate
+
+      - name: Build unsigned app
+        run: |
+          cd ios
+          xcodebuild -project XingyunMusic.xcodeproj -scheme XingyunMusic \
+            -sdk iphoneos -configuration Release \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" \
+            CONFIGURATION_BUILD_DIR=$PWD/build clean build
+
+      - name: Package unsigned IPA
+        run: |
+          cd ios
+          mkdir -p Payload
+          cp -r build/XingyunMusic.app Payload/
+          zip -qr "XingyunMusic-${{ steps.version.outputs.version }}-unsigned.ipa" Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: ios/*.ipa
+
+  # Android：Ubuntu 出 APK（§14.3）
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Build release APK
+        run: cd android && ./gradlew assembleRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/release/*.apk
+
+  # tag 时统一发布 Release，双附件（§14.4）
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-ios, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            artifacts/ios-ipa/*.ipa \
+            artifacts/android-apk/*.apk \
+            --title "${{ github.ref_name }}" \
+            --generate-notes

@@ -1,0 +1,39 @@
+# ---- 通用 ----
+.DS_Store
+*.log
+
+# ---- 密钥 / 本地配置（严禁入库）----
+.env
+.env.*
+*.pem
+*.key
+secrets/
+.local-config/
+
+# ---- iOS / XcodeGen ----
+ios/build/
+ios/DerivedData/
+ios/XingyunMusic.xcodeproj/
+*.xcuserdatad/
+xcuserdata/
+*.ipa
+*.dSYM/
+
+# ---- Android ----
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# ---- Python / 水印服务 ----
+watermark-service/__pycache__/
+watermark-service/.venv/
+__pycache__/
+*.py[cod]
+.venv/
