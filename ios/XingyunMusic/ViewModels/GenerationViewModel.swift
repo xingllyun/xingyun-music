@@ -136,7 +136,16 @@ final class GenerationViewModel: ObservableObject {
 
         switch result.status {
         case .failed:
-            errorMessage = result.error?.message ?? "生成失败"
+            let msg = result.error?.message ?? "生成失败"
+            errorMessage = msg
+            let modelName = aliasStore.displayName(providerId: selectedProviderId, internalId: selectedModelId, defaultName: selectedModelId)
+            let failed = HistoryRecord(id: UUID().uuidString, createdAt: Date(), providerId: selectedProviderId,
+                                       modelId: selectedModelId, modelName: modelName, mode: mode, lyrics: req.lyrics,
+                                       prompt: req.prompt, genre: genre.isEmpty ? nil : genre, mood: mood.isEmpty ? nil : mood,
+                                       timbre: timbre.isEmpty ? nil : timbre, gender: req.gender,
+                                       outputPath: nil, durationMs: nil, format: outFormat.rawValue, watermarkPayload: nil,
+                                       costAmount: nil, costUnit: nil, status: "failed", errorMessage: msg)
+            historyStore.insert(failed)
         case .processing:
             errorMessage = "任务仍在处理中"
         case .success:
@@ -204,7 +213,7 @@ final class GenerationViewModel: ObservableObject {
 
     private func saveFinal(_ processed: AudioPipeline.ProcessedAudio) throws -> URL {
         let dir = historyStore.outputDirectory()
-        let name = "小枯 - " + Self.fileDateFormatter.string(from: Date()) + "." + processed.finalFormat.rawValue
+        let name = "小枯 - " + Self.fileDateFormatter.string(from: Date()) + "-" + Self.millisSuffix() + "." + processed.finalFormat.rawValue
         let dest = dir.appendingPathComponent(name)
         do {
             try processed.data.write(to: dest, options: .atomic)
@@ -219,5 +228,10 @@ final class GenerationViewModel: ObservableObject {
         let next = (UserDefaults.standard.integer(forKey: key) + 1) % 512
         UserDefaults.standard.set(next, forKey: key)
         return UInt32(next)
+    }
+
+    /// 毫秒后缀，避免同一秒内多次导出互相覆盖文件名。
+    private static func millisSuffix() -> String {
+        String(format: "%03d", Int(Date().timeIntervalSince1970 * 1000) % 1000)
     }
 }

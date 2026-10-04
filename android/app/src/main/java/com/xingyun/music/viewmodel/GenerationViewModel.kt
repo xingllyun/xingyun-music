@@ -129,7 +129,9 @@ class GenerationViewModel(private val container: AppContainer) : ViewModel() {
                 }
 
                 if (r.status == "failed") {
-                    _state.update { it.copy(errorMessage = r.error?.message ?: "生成失败") }
+                    val msg = r.error?.message ?: "生成失败"
+                    _state.update { it.copy(errorMessage = msg) }
+                    insertHistory(s, req, null, null, null, "failed", msg)
                     return@launch
                 }
 
@@ -146,7 +148,7 @@ class GenerationViewModel(private val container: AppContainer) : ViewModel() {
                 )
                 val processed = container.pipeline.process(audioUrl, req.watermark, payload, s.outFormat)
 
-                val fileName = "小枯 - ${fileStamp()}.${s.outFormat}"
+                val fileName = "小枯 - ${fileStamp()}-${millisSuffix()}.${s.outFormat}"
                 val localFile = MediaExporter.saveToLocal(container.appContext, processed.data, fileName)
                 MediaExporter.saveToMediaStore(container.appContext, processed.data, fileName, mimeOf(s.outFormat))
 
@@ -214,6 +216,10 @@ class GenerationViewModel(private val container: AppContainer) : ViewModel() {
 
     private fun fileStamp(): String =
         SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+
+    /// 毫秒后缀，避免同一秒内多次导出互相覆盖文件名。
+    private fun millisSuffix(): String =
+        (System.currentTimeMillis() % 1000).toString().padStart(3, '0')
 
     companion object {
         fun factory(container: AppContainer) = viewModelFactory {

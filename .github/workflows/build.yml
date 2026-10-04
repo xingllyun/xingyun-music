@@ -10,10 +10,16 @@ on:
 permissions:
   contents: write
 
+# 同一分支/tag 的重复触发只保留最新一次，避免快速连续提交造成的重复构建
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # iOS：macOS 出未签名 IPA（§14.2）
   build-ios:
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -62,6 +68,7 @@ jobs:
   # Android：Ubuntu 出 APK（§14.3）
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -85,6 +92,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [build-ios, build-android]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4

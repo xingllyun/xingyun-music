@@ -41,6 +41,8 @@ TARGET_SR = 44100
 NBITS = 16                 # AudioSeal 官方模型消息长度
 SEGMENTS = 4               # 时间分段冗余数
 MAX_AUDIO_BYTES = 50 * 1024 * 1024  # 50MB 限制（§9.5）
+ALLOWED_FORMATS = {"mp3", "wav", "flac", "m4a"}
+MIN_WATERMARK_SAMPLES = TARGET_SR  # 至少 1 秒，避免分段为空 / AudioSeal 最短长度问题
 API_KEY = os.environ.get("WATERMARK_API_KEY", "")
 
 
@@ -193,21 +195,31 @@ def embed(req: EmbedRequest, x_api_key: str | None = Header(default=None)):
 
     if len(raw) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="audio too large")
+    if not (0 <= req.payload < (1 << 32)):
+        raise HTTPException(status_code=400, detail="payload must be a 32-bit unsigned integer")
+
+    # 白名单校验目标格式，防止把用户输入拼进输出路径（路径穿越）
+    fmt = req.format.lower()
+    if fmt not in ALLOWED_FORMATS:
+        raise HTTPException(status_code=400, detail="unsupported format")
 
     audio = _decode_audio(raw, TARGET_SR)
 
     if _GENERATOR is None:
         # 模型不可用时透传（不加水印），保证链路可用
-        out_bytes = _encode_audio(audio, TARGET_SR, req.format)
+        out_bytes = _encode_audio(audio, TARGET_SR, fmt)
         return EmbedResponse(audio_base64=base64.b64encode(out_bytes).decode(),
-                             format=req.format, model_version=MODEL_VERSION)
+                             format=fmt, model_version=MODEL_VERSION)
+
+    if audio.shape[0] < MIN_WATERMARK_SAMPLES:
+        raise HTTPException(status_code=400, detail="audio too short for watermarking")
 
     tensor = _to_tensor(audio)
     watermarked = _embed_payload(tensor, req.payload)
     out_audio = watermarked.squeeze(0).squeeze(0).numpy()
-    out_bytes = _encode_audio(out_audio, TARGET_SR, req.format)
+    out_bytes = _encode_audio(out_audio, TARGET_SR, fmt)
     return EmbedResponse(audio_base64=base64.b64encode(out_bytes).decode(),
-                         format=req.format, model_version=MODEL_VERSION)
+                         format=fmt, model_version=MODEL_VERSION)
 
 
 @app.post("/watermark/detect", response_model=DetectResponse)
@@ -225,6 +237,8 @@ def detect(req: DetectRequest, x_api_key: str | None = Header(default=None)):
         raise HTTPException(status_code=413, detail="audio too large")
 
     audio = _decode_audio(raw, TARGET_SR)
+    if audio.shape[0] < MIN_WATERMARK_SAMPLES:
+        raise HTTPException(status_code=400, detail="audio too short")
     payload, confidence = _detect_payload(_to_tensor(audio))
     info = decode_payload(payload)
     return DetectResponse(ai_label=info["ai_label"], owner_dev=info["owner_dev"],
