@@ -103,6 +103,7 @@ data class ApiKey(
     val quotaUsed: Double = 0.0,
     val quotaLimit: Double? = null,
     val lastUsedAt: Long? = null,
+    val cooldownUntil: Long? = null,   // 429 冷却截止(epoch ms)，过期自动恢复
     val failCount: Int = 0,
     val notes: String = ""
 ) {

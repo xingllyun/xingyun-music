@@ -177,6 +177,7 @@ struct ApiKey: Codable, Identifiable, Equatable {
     var quotaUsed: Double
     var quotaLimit: Double?
     var lastUsedAt: Date?
+    var cooldownUntil: Date?      // 429 冷却截止时间，过期自动恢复 active
     var failCount: Int
     var notes: String
 
@@ -189,6 +190,7 @@ struct ApiKey: Codable, Identifiable, Equatable {
          quotaUsed: Double = 0,
          quotaLimit: Double? = nil,
          lastUsedAt: Date? = nil,
+         cooldownUntil: Date? = nil,
          failCount: Int = 0,
          notes: String = "") {
         self.id = id
@@ -200,6 +202,7 @@ struct ApiKey: Codable, Identifiable, Equatable {
         self.quotaUsed = quotaUsed
         self.quotaLimit = quotaLimit
         self.lastUsedAt = lastUsedAt
+        self.cooldownUntil = cooldownUntil
         self.failCount = failCount
         self.notes = notes
     }
