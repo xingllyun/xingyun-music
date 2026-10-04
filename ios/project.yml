@@ -23,6 +23,7 @@ targets:
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: XingyunMusic/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: 星云音乐
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSMicrophoneUsageDescription: 用于可能的录音功能

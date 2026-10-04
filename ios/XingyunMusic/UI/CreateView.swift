@@ -33,9 +33,10 @@ struct CreateView: View {
 
                 if vm.mode != .instrumental {
                     Section(vm.mode == .customLyrics ? "歌词" : "灵感（自动写词）") {
-                        if vm.mode == .customLyrics {
-                            TextEditor(text: $vm.lyrics)
-                                .frame(minHeight: 140)
+                    if vm.mode == .customLyrics {
+                        TextEditor(text: $vm.lyrics)
+                            .font(.custom("NotoSansCJKsc-Regular", size: 16))
+                            .frame(minHeight: 140)
                                 .overlay(alignment: .topLeading) {
                                     if vm.lyrics.isEmpty {
                                         Text("输入歌词，可用 [Verse][Chorus] 等结构标签分行").foregroundColor(.secondary).padding(6)
